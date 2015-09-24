@@ -1,0 +1,6 @@
+_notatList()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    COMPREPLY=( $(compgen -W "$(ls $NOTAT_HOME)" -- $cur) )
+}
+complete -F _notatList notat

@@ -1,0 +1,64 @@
+#!/bin/bash
+# $helptext tells you how to use this script
+helptext="# notat [-h] [-t] [-p] [note] [-t] [template] [action] [note]
+ * []		opens last edited file
+ * [note]	opens a new file in notes folder, or edit existing
+ * -l/ls 	will list your notes
+ * -t		use $NOTAT_HOME/notat.latex as pdf template. Must be given before [-p].
+ * -p [note] 	will make a pdf-file in your current directory
+ * -h		will print this text
+ * -c		will use cat to display note for piping
+ * -f		will display full path of file
+
+Notes folder is set in global variable 'NOTAT_HOME' ($NOTAT_HOME)
+Use naming format 'context_what', and notat will append '_`date +%F.md`' to the filename
+You can open all of todays notes without specifing date.
+"
+
+# Fetch global variable or set to default
+if [[ -z $NOTAT_HOME ]]; then path="$HOME/Documents/"; else path=$NOTAT_HOME; fi 	# Check for a global "home path" variable
+vim_syntax="markdown" 									# Defining what syntax to use
+if [[ -e $HOME/.vim/syntax/notat_markdown.vim ]]; then vim_syntax="notat_markdown"; fi	# ...but if there is a dedicated syntax for notat let's use that
+
+today=`date +%F`
+filename="$1"
+file=$path"/"$filename
+
+if [[ $1 == "" ]]; then file=`ls -t $path/*.md | grep -v current.md | head -1`; fi	# Use last edited file if no file is specified
+if [[ ! -e $file ]]; then file="$file"_"$today".md; fi					# Finding out if file exist, or if it should be created
+if [[ $1 == "ls" ]]; then ls -1trh --color $path/; exit 0; fi				# List files
+
+# Getting single single-character options
+while getopts "tp:hlc:f:" flag ; do
+        case $flag in
+		t ) # Custom.latex template for notes
+		    if [[ -e $NOTAT_HOME/notat.latex ]]; then arguments="--latex-engine=xelatex --template=$NOTAT_HOME/notat.latex"; fi;;
+
+                p ) # Print to pdf if pandoc is installed
+ 	            dpkg -s pandoc > /dev/null 2>&1 || pandocinstalled=false    						# Check if pandoc is installed,
+                    if [[ $pandocinstalled == "false" ]]; then echo "To print to pdf you need to install pandoc."; exit 1; fi	# ... and exit if not
+                    pandoc $NOTAT_HOME/$OPTARG $arguments -o $OPTARG.pdf  							# Use pandoc for making pdf
+		    exit 0;;
+
+		h ) # Print helptext
+		    echo -e "\n$helptext"
+    		    exit 0;;
+
+                l ) # List notes
+		    ls -1trh --color $path/
+		    exit 0;;
+
+		c ) # Cat note
+		    cat $path/$OPTARG
+		    exit 0;;
+
+		f ) # Print full path
+		    if [[ -e $path/$OPTARG ]]; then echo "$path/$OPTARG"; else exit 1; fi 
+		    exit 0;;
+
+		"?" ) exit 1;;
+        esac
+done
+
+# Edit file
+vim -c "set syntax=$vim_syntax" -c "set autoindent" $file
